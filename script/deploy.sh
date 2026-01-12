@@ -16,7 +16,8 @@ echo "Starting/Restarting application with PM2..."
 if pm2 list | grep -q "payment-gateway"; then
     pm2 reload payment-gateway
 else
-    pm2 start npm --name "payment-gateway" -- start
+    # Start in cluster mode (-i max) to utilize all available CPU cores
+    pm2 start npm --name "payment-gateway" -i max -- start
 fi
 
 echo "Saving PM2 process list..."
