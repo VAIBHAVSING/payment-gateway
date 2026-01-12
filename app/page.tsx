@@ -1,65 +1,140 @@
-import Image from "next/image";
+"use client";
+import Script from "next/script";
+import { useState } from "react";
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 export default function Home() {
+  const [email, setEmail] = useState("");
+  const [plan, setPlan] = useState("basic");
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const handle_payment_stuff = async () => {
+    if (!email) {
+      alert("Please enter email");
+      return;
+    }
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      // Create order
+      const response = await fetch("/api/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, plan }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.msg || "Something went wrong");
+        setIsLoading(false);
+        return;
+      }
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: data.amount,
+        currency: data.currency,
+        name: "My Awesome App",
+        description: `Payment for ${plan} plan`,
+        order_id: data.order_id,
+        handler: async function (response: any) {
+          const verifyResponse = await fetch("/api/verify-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              email: email,
+            }),
+          });
+
+          if (verifyResponse.ok) {
+            setMessage("Payment successful! You are now a premium member.");
+          } else {
+            setMessage("Payment verification failed.");
+          }
+          setIsLoading(false);
+        },
+        prefill: {
+          email: email,
+        },
+        theme: {
+          color: "#3399cc",
+        },
+      };
+
+      const rzp1 = new window.Razorpay(options);
+      rzp1.on("payment.failed", function (response: any) {
+        setMessage("Payment failed: " + response.error.description);
+        setIsLoading(false);
+      });
+      rzp1.open();
+    } catch (error) {
+      console.error("Error:", error);
+      setMessage("Something broke");
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <div className="flex min-h-screen flex-col items-center justify-center p-24">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
+
+      <div className="z-10 w-full max-w-md items-center justify-between font-mono text-sm lg:flex-col">
+        <h1 className="text-4xl font-bold mb-8 text-center">Pay Once App</h1>
+
+        <div className="flex flex-col gap-4">
+            <input
+                type="email"
+                placeholder="Enter your email"
+                className="p-3 border rounded text-black"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+            <div className="flex gap-2 justify-center mb-2">
+                <button
+                    onClick={() => setPlan('basic')}
+                    className={`p-2 border rounded transition-colors ${plan === 'basic' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+                >
+                    Basic (1₹)
+                </button>
+                <button
+                    onClick={() => setPlan('premium')}
+                    className={`p-2 border rounded transition-colors ${plan === 'premium' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+                >
+                    Premium (2₹)
+                </button>
+                <button
+                    onClick={() => setPlan('advance')}
+                    className={`p-2 border rounded transition-colors ${plan === 'advance' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+                >
+                    Advance (3₹)
+                </button>
+            </div>
+
+            <button
+                onClick={handle_payment_stuff}
+                disabled={isLoading}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded disabled:bg-gray-400"
+            >
+                {isLoading ? "Processing..." : `Pay ${plan === 'basic' ? '1' : plan === 'premium' ? '2' : '3'} INR`}
+            </button>
+
+            {message && (
+                <p className="mt-4 text-center text-lg">{message}</p>
+            )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

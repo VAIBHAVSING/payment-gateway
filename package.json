@@ -6,10 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "format": "eslint --fix ."
   },
   "dependencies": {
+    "mongoose": "^9.1.3",
     "next": "16.1.1",
+    "razorpay": "^2.9.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
